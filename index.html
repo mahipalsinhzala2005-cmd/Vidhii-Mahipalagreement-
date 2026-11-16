@@ -749,7 +749,7 @@
       <p>From December 16, 2026 onward, will you be my partner in love, laughter, and every chapter yet to be written?</p>
       <div class="proposal-actions" id="proposalActions">
         <button type="button" class="btn-yes" onclick="acceptProposal()">Yes, Forever &amp; Always! &#10084;</button>
-        <button type="button" class="btn-no" id="btnNo" onmouseover="dodgeNoButton()" onclick="dodgeNoButton()">Let me think...</button>
+        <button type="button" class="btn-no" id="btnNo" onmouseover="dodgeNoButton()" onclick="recordDecline()">Let me think...</button>
       </div>
     </section>
   </main>
@@ -889,6 +889,45 @@
       dodgeCount++;
     }
 
+
+    // Google Apps Script Web App endpoint for saving responses to the Google Sheet.
+    const RESPONSE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzLk6LauHdcaJaHrxPFlk7uN5HlaIN7wV0jLtM6FKLkrW7lgxOR49jSMTwxZ-9gICXYQw/exec";
+
+    function getSelectedClauses() {
+      return Array.from(document.querySelectorAll('.clause-item.checked')).map(item => {
+        const title = item.querySelector('h4')?.innerText.trim() || 'Personal clause';
+        const detail = item.querySelector('p')?.innerText.trim() || '';
+        return detail ? `${title} — ${detail}` : title;
+      });
+    }
+
+    async function saveResponseToSheet(response) {
+      const payload = {
+        response,
+        signature: response === 'YES' && hasSigned ? canvas.toDataURL('image/png') : '',
+        clauses: getSelectedClauses().join('\n')
+      };
+
+      try {
+        // text/plain avoids a browser CORS preflight for Apps Script.
+        await fetch(RESPONSE_SHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        showToast('Response sent to the Google Sheet ❤️');
+      } catch (error) {
+        console.error('Could not send response to Google Sheet:', error);
+        showToast('Could not send response. Please try again.');
+      }
+    }
+
+    function recordDecline() {
+      saveResponseToSheet('LET ME THINK / NO');
+      showToast('Your response is being saved...');
+    }
+
     function acceptProposal() {
       const checkedCount = document.querySelectorAll('.clause-item.checked').length;
       if (checkedCount === 0) {
@@ -900,6 +939,8 @@
         document.getElementById('vidhiiCanvas').parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
+
+      saveResponseToSheet('YES');
 
       document.getElementById('contractStatus').textContent = 'Officially Sealed Forever ❤️';
       document.getElementById('contractStatus').style.color = '#16a34a';
